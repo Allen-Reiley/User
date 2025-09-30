@@ -39,24 +39,24 @@ const App = () => {
     setDebouncedSearchTerm(searchTerm);
   }, 500, [searchTerm]);
 
-  const fetchMovies = async (query = '') => {
+  const fetchMovies = async ( query = '') => {
     setIsLoading(true);
     setErrorMessage('');
 
-    try {
+    try{
       const endpoint = query
-        ? `/api/movies?query=${encodeURIComponent(query)}`
-        : `/api/movies`;
+      ? `${BASE_API_URL}/search/movie?query=${encodeURIComponent(query)}`
+       : `${BASE_API_URL}/discover/movie?sort_by=popularity.desc`;
 
-      const response = await fetch(endpoint);
+      const response = await fetch(endpoint, API_OPTIONS);
 
-      if (!response.ok) {
+      if(!response.ok){
         throw new Error('Network response was not ok');
       }
 
       const data = await response.json();
-
-      if (data.Response === 'False') {
+      
+      if(data.Response === 'False'){
         setErrorMessage(data.Error || 'Error fetching movies');
         setMovieList([]);
         return;
@@ -64,20 +64,23 @@ const App = () => {
 
       setMovieList(data.results || []);
 
-      if (query && data.results.length > 0) {
+      if(query && data.results.length > 0){
         await updateSearchCount(query, data.results[0]);
-      }
-    } catch (error) {
+      }  
+      
+
+    } catch(error){
       console.error('Error fetching movies:', error);
       setErrorMessage('Failed to fetch movies. Please try again later.');
-    } finally {
+      
+    } finally{
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
     fetchMovies(searchTerm);
-  }, [searchTerm]);
+  },[searchTerm]);
 
   return (
     <main>
