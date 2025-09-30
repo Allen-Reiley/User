@@ -39,24 +39,23 @@ const App = () => {
     setDebouncedSearchTerm(searchTerm);
   }, 500, [searchTerm]);
 
-  const fetchMovies = async ( query = '') => {
+  const fetchMovies = async (query = '') => {
     setIsLoading(true);
     setErrorMessage('');
 
-    try{
+    // Try serverless function first
+    try {
       const endpoint = query
-      ? `${BASE_API_URL}/search/movie?query=${encodeURIComponent(query)}`
-       : `${BASE_API_URL}/discover/movie?sort_by=popularity.desc`;
+        ? `/api/movies?query=${encodeURIComponent(query)}`
+        : `/api/movies`;
 
-      const response = await fetch(endpoint, API_OPTIONS);
+      const response = await fetch(endpoint);
 
-      if(!response.ok){
-        throw new Error('Network response was not ok');
-      }
+      if (!response.ok) throw new Error('Serverless function failed');
 
       const data = await response.json();
-      
-      if(data.Response === 'False'){
+
+      if (data.Response === 'False') {
         setErrorMessage(data.Error || 'Error fetching movies');
         setMovieList([]);
         return;
@@ -64,23 +63,55 @@ const App = () => {
 
       setMovieList(data.results || []);
 
-      if(query && data.results.length > 0){
+      if (query && data.results.length > 0) {
         await updateSearchCount(query, data.results[0]);
-      }  
-      
+      }
+    } catch (error) {
+      // Fallback: direct TMDB API call
+      try {
+        const BASE_API_URL = 'https://api.themoviedb.org/3';
+        const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+        const API_OPTIONS = {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${API_KEY}`,
+          },
+        };
 
-    } catch(error){
-      console.error('Error fetching movies:', error);
-      setErrorMessage('Failed to fetch movies. Please try again later.');
-      
-    } finally{
+        const endpoint = query
+          ? `${BASE_API_URL}/search/movie?query=${encodeURIComponent(query)}`
+          : `${BASE_API_URL}/discover/movie?sort_by=popularity.desc`;
+
+        const response = await fetch(endpoint, API_OPTIONS);
+
+        if (!response.ok) throw new Error('Direct TMDB API call failed');
+
+        const data = await response.json();
+
+        if (data.Response === 'False') {
+          setErrorMessage(data.Error || 'Error fetching movies');
+          setMovieList([]);
+          return;
+        }
+
+        setMovieList(data.results || []);
+
+        if (query && data.results.length > 0) {
+          await updateSearchCount(query, data.results[0]);
+        }
+      } catch (fallbackError) {
+        console.error('Both serverless and fallback failed:', fallbackError);
+        setErrorMessage('Failed to fetch movies. Please try again later.');
+      }
+    } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     fetchMovies(searchTerm);
-  },[searchTerm]);
+  }, [searchTerm]);
 
   return (
     <main>
